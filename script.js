@@ -2,10 +2,11 @@ const checkout = document.querySelector('#checkout');
 const submitButton = checkout.querySelector('.submit');
 const initialButtonContent = submitButton.innerHTML;
 const summary = document.querySelector('#error-summary');
+const { validatePhone } = window.checkoutValidation;
 const fields = [
   ['email', 'Email address', input => !input.value.trim() ? 'Enter your email address.' : input.validity.typeMismatch ? 'Enter a valid email address.' : ''],
   ['full-name', 'Full name', input => input.value.trim().length < 2 ? 'Enter your full name (at least 2 characters).' : ''],
-  ['phone', 'Phone number', input => { const value = input.value.trim(); const countryCode = document.querySelector('#phone-country').selectedOptions[0].dataset.dial; const digits = value.replace(/\D/g, ''); return !/^[\d().\s-]+$/.test(value) || digits.length < 7 || digits.length + countryCode.length > 15 ? 'Enter a valid phone number without the country code.' : ''; }],
+  ['phone', 'Phone number', input => validatePhone(input.value, checkout.elements.phoneCountry.value).message],
   ['region', 'State / province / region', input => input.value.trim() ? '' : 'Enter your state or region.'],
   ['city', 'City', input => input.value.trim() ? '' : 'Enter your city.'],
   ['postal', 'ZIP / postal code', input => { const value = input.value.trim(); return !value ? 'Enter your ZIP or postal code.' : checkout.elements.country.value === 'US' && !/^\d{5}(-\d{4})?$/.test(value) ? 'Enter a valid US ZIP code, such as 10001.' : ''; }],
@@ -41,6 +42,14 @@ for (const field of fields) {
 const phonePicker = document.querySelector('.phone-picker');
 const phoneCountry = document.querySelector('#phone-country');
 const phoneInput = document.querySelector('#phone');
+const phoneField = fields.find(([id]) => id === 'phone');
+// Before the first submit the summary stays hidden, so a country change must touch
+// the phone field alone: the other untouched fields must not gain errors yet.
+function updatePhoneError() {
+  if (phoneInput.value.trim()) validateField(phoneField);
+  else { document.getElementById('phone-error').textContent = ''; phoneInput.removeAttribute('aria-invalid'); }
+}
+phoneInput.addEventListener('input', () => { if (summary.hidden && document.getElementById('phone-error').textContent) updatePhoneError(); });
 phonePicker.querySelectorAll('[data-country]').forEach((button) => button.addEventListener('click', () => {
   phoneCountry.value = button.dataset.country;
   phoneCountry.dispatchEvent(new Event('change'));
@@ -51,7 +60,7 @@ phonePicker.querySelectorAll('[data-country]').forEach((button) => button.addEve
 }));
 document.addEventListener('click', (event) => { if (!phonePicker.contains(event.target)) phonePicker.open = false; });
 phonePicker.addEventListener('keydown', (event) => { if (event.key === 'Escape' && phonePicker.open) { phonePicker.open = false; phonePicker.querySelector('summary').focus(); } });
-document.querySelector('#phone-country').addEventListener('change', (event) => { document.querySelector('#phone-flag').src = `https://flagcdn.com/w40/${event.target.value.toLowerCase()}.png`; if (!summary.hidden) validateCheckout(false); });
+document.querySelector('#phone-country').addEventListener('change', (event) => { document.querySelector('#phone-flag').src = `https://flagcdn.com/w40/${event.target.value.toLowerCase()}.png`; if (!summary.hidden) validateCheckout(false); else updatePhoneError(); });
 checkout.elements.country.addEventListener('change', () => { const postal = document.getElementById('postal'); if (!summary.hidden) validateCheckout(false); });
 checkout.addEventListener('submit', (event) => {
   event.preventDefault();
